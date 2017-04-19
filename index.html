@@ -1,0 +1,64 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>MCHNZD</title>
+    <style type="text/css">
+      * {
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <script src="pixi.min.js"></script>
+  <body>
+  <script type="text/javascript">
+    class Tank extends PIXI.Container {
+      constructor(x, y) {
+        super();
+        this.tankbody = new PIXI.Graphics();
+        this.tankbody.beginFill(0x000000).lineStyle(0.5, 0xffffff).drawRect(0, 0, 40, 40).endFill();
+
+        this.turret = new PIXI.Container();
+        var turretbase = new PIXI.Graphics();
+        turretbase.beginFill(0x000000).lineStyle(0.5, 0xffffff).drawCircle(0, 0, 10).endFill();
+        var turretbarrel = new PIXI.Graphics();
+        turretbarrel.beginFill(0x000000).lineStyle(0.5, 0xffffff).drawRect(0, 0, 4, 26).endFill();
+        turretbarrel.pivot.set(2, 0);
+
+        this.turret.addChild(turretbase);
+        this.turret.addChild(turretbarrel);
+        this.turret.position.set(20, 20);
+        //this.turret.rotation = deg2rad(230);
+
+        this.addChild(this.tankbody);
+        this.addChild(this.turret);
+        this.position.set(x, y);
+      }
+    }
+
+    var renderer, stage, player1;
+    setup();
+
+    function setup() {
+      renderer = PIXI.autoDetectRenderer(512, 512, {antialias: false});
+      document.body.appendChild(renderer.view);
+      stage = new PIXI.Container();
+      player1 = new Tank(70, 200);
+
+      stage.addChild(player1);
+      gameLoop();
+    }
+
+    function gameLoop() {
+      requestAnimationFrame(gameLoop);
+      renderer.render(stage);
+    }
+
+    // UTILITY
+    function deg2rad(degrees) {
+      var rads = degrees * Math.PI / 180;
+      return rads;
+    }
+  </script>
+  </body>
+</html>
