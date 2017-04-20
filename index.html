@@ -28,15 +28,26 @@
         this.turret.addChild(turretbase);
         this.turret.addChild(turretbarrel);
         this.turret.position.set(20, 20);
-        //this.turret.rotation = deg2rad(230);
+        this.turretSpeed = 1; // how fast it rotates
 
         this.addChild(this.tankbody);
         this.addChild(this.turret);
         this.position.set(x, y);
       }
+
+      rotateTurret(direction) {
+        var rotateDelta = deg2rad(this.turretSpeed);
+        this.turret.rotation += direction > 0 ? rotateDelta : -rotateDelta;
+      }
     }
 
+    // END CLASS DEFINITIONS
+
+    // GLOBALS
     var renderer, stage, player1;
+    var state = play;
+
+    // GAME CODE
     setup();
 
     function setup() {
@@ -44,20 +55,66 @@
       document.body.appendChild(renderer.view);
       stage = new PIXI.Container();
       player1 = new Tank(70, 200);
+      player2 = new Tank(100, 20);
 
       stage.addChild(player1);
+      stage.addChild(player2);
       gameLoop();
     }
 
     function gameLoop() {
       requestAnimationFrame(gameLoop);
+      state();
       renderer.render(stage);
     }
 
+    function play() {
+      //player1.rotateTurret(1);
+      //player2.rotateTurret(-1);
+    }
+
     // UTILITY
+    function keyboard(keyCode) {
+      var key = {};
+      key.code = keyCode;
+      key.isDown = false;
+      key.isUp = true;
+      key.press = undefined;
+      key.release = undefined;
+      //The `downHandler`
+      key.downHandler = function(event) {
+        if (event.keyCode === key.code) {
+          if (key.isUp && key.press) key.press();
+          key.isDown = true;
+          key.isUp = false;
+        }
+        event.preventDefault();
+      };
+
+      //The `upHandler`
+      key.upHandler = function(event) {
+        if (event.keyCode === key.code) {
+          if (key.isDown && key.release) key.release();
+          key.isDown = false;
+          key.isUp = true;
+        }
+        event.preventDefault();
+      };
+
+      //Attach event listeners
+      window.addEventListener("keydown", key.downHandler.bind(key), false);
+      window.addEventListener("keyup", key.upHandler.bind(key), false);
+      return key;
+    }
+
     function deg2rad(degrees) {
       var rads = degrees * Math.PI / 180;
       return rads;
+    }
+
+    function rad2deg(radians) {
+      var degs = radians * 180 / Math.PI;
+      return degs;
     }
   </script>
   </body>
