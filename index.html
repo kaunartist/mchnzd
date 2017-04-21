@@ -22,13 +22,24 @@
         var turretbase = new PIXI.Graphics();
         turretbase.beginFill(0x000000).lineStyle(0.5, 0xffffff).drawCircle(0, 0, 10).endFill();
         var turretbarrel = new PIXI.Graphics();
-        turretbarrel.beginFill(0x000000).lineStyle(0.5, 0xffffff).drawRect(0, 0, 4, 26).endFill();
-        turretbarrel.pivot.set(2, 0);
+        turretbarrel.beginFill(0x000000).lineStyle(0.5, 0xffffff).drawRect(0, 0, 26, 4).endFill();
+        turretbarrel.pivot.set(0, 2);
 
         this.turret.addChild(turretbase);
         this.turret.addChild(turretbarrel);
         this.turret.position.set(20, 20);
         this.turretSpeed = 1; // how fast it rotates
+        this.tankTurnSpeed = 0.1; // how fast the tank turns
+
+        this.pivot.set(20, 20);
+
+        this.power = 0;
+        this.vx = 0;
+        this.vy = 0;
+
+        this.leftGear = 1;
+        this.rightGear = 1;
+
 
         this.addChild(this.tankbody);
         this.addChild(this.turret);
@@ -39,12 +50,56 @@
         var rotateDelta = deg2rad(this.turretSpeed);
         this.turret.rotation += direction > 0 ? rotateDelta : -rotateDelta;
       }
+
+      rotateTank(delta) {
+        var rotateDelta = deg2rad(this.tankTurnSpeed * delta);
+        this.rotation += rotateDelta;
+      }
+
+      engineOn() {
+        this.power = 1;
+        //this.vy = -2;
+      }
+
+      engineOff() {
+        this.power = 0;
+        //this.vy = 0;
+      }
+
+      gearUpLeft() {
+        this.leftGear += 1;
+        if (this.leftGear > 5) {
+          this.leftGear = 5;
+        }
+      }
+
+      gearDownLeft() {
+        this.leftGear -= 1;
+        if (this.leftGear < 0) {
+          this.leftGear = 0;
+        }
+      }
+
+      gearUpRight() {
+        this.rightGear += 1;
+        if (this.rightGear > 5) {
+          this.rightGear = 5;
+        }
+      }
+
+      gearDownRight() {
+        this.rightGear -= 1;
+        if (this.rightGear < 0) {
+          this.rightGear = 0;
+        }
+      }
     }
 
     // END CLASS DEFINITIONS
 
     // GLOBALS
-    var renderer, stage, player1;
+    var renderer, stage, player1, heading;
+    var leftGearHud, rightGearHud, gasHud, rotationHud, turretRotationHud;
     var state = play;
 
     // GAME CODE
@@ -54,11 +109,96 @@
       renderer = PIXI.autoDetectRenderer(512, 512, {antialias: false});
       document.body.appendChild(renderer.view);
       stage = new PIXI.Container();
+
+      //this code from a tutorial, don't quite trust it yet
+      //Capture the keyboard arrow keys
+      var leftgearup = keyboard(85),
+          leftgeardown = keyboard(74),
+          gas = keyboard(73),
+          rightgearup = keyboard(79),
+          rightgeardown = keyboard(76);
+
+      leftGearHud = new PIXI.Text("1", {fontFamily: "Futura", fontSize: 24, fill: "red"});
+      leftGearHud.position.set(10, 460);
+      rightGearHud = new PIXI.Text("1", {fontFamily: "Futura", fontSize: 24, fill: "red"});
+      rightGearHud.position.set(90, 460);
+      gasHud = new PIXI.Text("GAS", {fontFamily: "Futura", fontSize: 24, fill: "red"});
+      gasHud.position.set(30, 460);
+      rotationHud = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 24, fill: "red"});
+      rotationHud.position.set(120, 460);
+      turretRotationHud = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 24, fill: "red"});
+      turretRotationHud.position.set(170, 460);
+
+      //Left track gear
+      leftgearup.press = function() {
+        if (!leftgeardown.isDown) {
+          player1.gearUpLeft();
+          leftGearHud.text = player1.leftGear;
+        }
+      };
+      leftgearup.release = function() {
+
+      };
+
+      //Left track gear
+      leftgeardown.press = function() {
+        if (!leftgearup.isDown) {
+          player1.gearDownLeft();
+          leftGearHud.text = player1.leftGear;
+        }
+      };
+      leftgeardown.release = function() {
+
+      };
+
+      //Gas
+      gas.press = function() {
+        player1.engineOn();
+        gasHud.style.fill = "green";
+      };
+      gas.release = function() {
+        player1.engineOff();
+        gasHud.style.fill = "red";
+      };
+
+      //Right
+      rightgearup.press = function() {
+        if (!rightgeardown.isDown) {
+          player1.gearUpRight();
+          rightGearHud.text = player1.rightGear;
+        }
+      };
+      rightgearup.release = function() {
+        //stopTurningRight();
+      };
+
+      //Down
+      rightgeardown.press = function() {
+        if (!rightgearup.isDown) {
+          player1.gearDownRight();
+          rightGearHud.text = player1.rightGear;
+        }
+      };
+      rightgeardown.release = function() {
+      };
+
       player1 = new Tank(70, 200);
       player2 = new Tank(100, 20);
 
+
+      heading = new PIXI.Graphics();
+      heading.lineStyle(2, 0x00FF00, 1);
+      heading.moveTo(player1.position.x + 30, player1.position.y + 2);
+      heading.lineTo(player1.position.x + 50, player1.position.y + 2);
+
       stage.addChild(player1);
       stage.addChild(player2);
+      stage.addChild(leftGearHud);
+      stage.addChild(rightGearHud);
+      stage.addChild(gasHud);
+      stage.addChild(rotationHud);
+      stage.addChild(turretRotationHud);
+      stage.addChild(heading);
       gameLoop();
     }
 
@@ -69,8 +209,92 @@
     }
 
     function play() {
-      //player1.rotateTurret(1);
-      //player2.rotateTurret(-1);
+      turnTank(player1);
+      //moveTank(player1);
+
+      // actually move it based on those calculations
+      if (player1.power == 1) {
+        player1.x += player1.vx;
+        player1.y += player1.vy;
+      }
+    }
+
+    function turnTank(player) {
+      // compare left and right, turn in that direction
+      // left -> [0,1,2,3,4,5]
+      // right -> [0,1,2,3,4,5]
+      if (player.power == 1) {
+        var left = player.leftGear < 1 ? -3 : player.leftGear;
+        var right = player.rightGear < 1 ? -3 : player.rightGear;
+        var delta = left - right;
+        if (delta != 0) {
+          player.rotateTank(delta);
+          var angle = player.rotation;
+          var hx = Math.cos(angle);
+          var hy = Math.sin(angle);
+
+          if ((left < 1 && right < 3) || (right < 1 && left < 3)) {
+            // back up if one tread is going in reverse stronger than the other is going forward
+            player1.vx = -hx / 2;
+            player1.vy = -hy / 2;
+          } else {
+            player1.vx = hx / 2;
+            player1.vy = hy / 2;
+          }
+
+          //console.log(hx + "," + hy);
+          stage.removeChild(heading);
+          heading = new PIXI.Graphics();
+          heading.lineStyle(2, 0x00FF00, 1);
+          heading.moveTo(player1.position.x + (hx * 30), player1.position.y + (hy * 30));
+          heading.lineTo(player1.position.x + (hx * 50), player1.position.y + (hy * 50));
+          stage.addChild(heading);
+
+          if (player.rotation > Math.PI * 2) {
+            player.rotation = 0;
+          } else if (player.rotation < -Math.PI * 2) {
+            player.rotation = 0;
+          }
+          rotationHud.text = parseInt(rad2deg(player.rotation));
+        } else {
+          var angle = player.rotation - Math.PI; 
+          // calculate heading vector
+          var hx = Math.cos(angle);
+          var hy = Math.sin(angle);
+          if (left < 1 && right < 1) { // we're in reverse
+            //console.log("beep beep");
+            player1.vx = hx / 2;
+            player1.vy = hy / 2;
+            stage.removeChild(heading);
+            heading = new PIXI.Graphics();
+            heading.lineStyle(2, 0x00FF00, 1);
+            heading.moveTo(player1.position.x - (hx * 30), player1.position.y - (hy * 30));
+            heading.lineTo(player1.position.x - (hx * 50), player1.position.y - (hy * 50));
+            stage.addChild(heading);
+          } else { // we're going straight forward
+            player1.vx = -hx / 2;
+            player1.vy = -hy / 2;
+            stage.removeChild(heading);
+            heading = new PIXI.Graphics();
+            heading.lineStyle(2, 0x00FF00, 1);
+            heading.moveTo(player1.position.x - (hx * 30), player1.position.y - (hy * 30));
+            heading.lineTo(player1.position.x - (hx * 50), player1.position.y - (hy * 50));
+            stage.addChild(heading);
+          }
+        }
+      }
+    }
+
+    function moveTank(player) { // rename this to setVelocity?
+      // calculate rotation vector
+      if (player.power == 1) {
+        var currentRotation = player.rotation;
+
+        var angle = currentRotation - Math.PI; // get the rotation angle expressed between -Pi and Pi instead of 0 to 2Pi like it is stored
+        player.vx = Math.cos(angle);
+        player.vy = Math.sin(angle);
+      }
+      // set velocity to that vector
     }
 
     // UTILITY
