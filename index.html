@@ -36,6 +36,7 @@
         this.power = 0;
         this.vx = 0;
         this.vy = 0;
+        this.turretvelocity = 0;
 
         this.leftGear = 1;
         this.rightGear = 1;
@@ -48,7 +49,11 @@
 
       rotateTurret(direction) {
         var rotateDelta = deg2rad(this.turretSpeed);
-        this.turret.rotation += direction > 0 ? rotateDelta : -rotateDelta;
+        this.turretvelocity = direction > 0 ? rotateDelta : -rotateDelta;
+      }
+
+      stopTurret() {
+        this.turretvelocity = 0;
       }
 
       rotateTank(delta) {
@@ -112,7 +117,11 @@
 
       //this code from a tutorial, don't quite trust it yet
       //Capture the keyboard arrow keys
-      var leftgearup = keyboard(85),
+      var rotateturretleft = keyboard(65),
+          rotateturretright = keyboard(68),
+          shoot = keyboard(32),
+          utility = keyboard(70),
+          leftgearup = keyboard(85),
           leftgeardown = keyboard(74),
           gas = keyboard(73),
           rightgearup = keyboard(79),
@@ -127,7 +136,27 @@
       rotationHud = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 24, fill: "red"});
       rotationHud.position.set(120, 460);
       turretRotationHud = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 24, fill: "red"});
-      turretRotationHud.position.set(170, 460);
+      turretRotationHud.position.set(180, 460);
+
+      //Turret rotation
+      rotateturretleft.press = function() {
+        if (!rotateturretright.isDown) {
+          player1.rotateTurret(-1);
+        }
+      };
+      rotateturretleft.release = function() {
+        player1.stopTurret();
+      };
+
+      //Turret rotation
+      rotateturretright.press = function() {
+        if (!rotateturretleft.isDown) {
+          player1.rotateTurret(1);
+        }
+      };
+      rotateturretright.release = function() {
+        player1.stopTurret();
+      };
 
       //Left track gear
       leftgearup.press = function() {
@@ -209,6 +238,7 @@
     }
 
     function play() {
+      turnTurret(player1);
       turnTank(player1);
       //moveTank(player1);
 
@@ -217,6 +247,18 @@
         player1.x += player1.vx;
         player1.y += player1.vy;
       }
+    }
+
+    function turnTurret(player) {
+      player.turret.rotation += player.turretvelocity;
+      turretRotationHud.text = parseInt(rad2deg(player.turret.rotation));
+      if (player.turret.rotation > Math.PI * 2) {
+        player.turret.rotation = 0;
+      } else if (player.turret.rotation < -Math.PI * 2) {
+        player.turret.rotation = 0;
+      }
+
+      updateHeading(1, player);
     }
 
     function turnTank(player) {
@@ -235,20 +277,14 @@
 
           if ((left < 1 && right < 3) || (right < 1 && left < 3)) {
             // back up if one tread is going in reverse stronger than the other is going forward
-            player1.vx = -hx / 2;
-            player1.vy = -hy / 2;
+            player.vx = -hx / 2;
+            player.vy = -hy / 2;
           } else {
-            player1.vx = hx / 2;
-            player1.vy = hy / 2;
+            player.vx = hx / 2;
+            player.vy = hy / 2;
           }
 
-          //console.log(hx + "," + hy);
-          stage.removeChild(heading);
-          heading = new PIXI.Graphics();
-          heading.lineStyle(2, 0x00FF00, 1);
-          heading.moveTo(player1.position.x + (hx * 30), player1.position.y + (hy * 30));
-          heading.lineTo(player1.position.x + (hx * 50), player1.position.y + (hy * 50));
-          stage.addChild(heading);
+          updateHeading(1, player);
 
           if (player.rotation > Math.PI * 2) {
             player.rotation = 0;
@@ -258,31 +294,40 @@
           rotationHud.text = parseInt(rad2deg(player.rotation));
         } else {
           var angle = player.rotation - Math.PI; 
-          // calculate heading vector
           var hx = Math.cos(angle);
           var hy = Math.sin(angle);
+
           if (left < 1 && right < 1) { // we're in reverse
-            //console.log("beep beep");
-            player1.vx = hx / 2;
-            player1.vy = hy / 2;
-            stage.removeChild(heading);
-            heading = new PIXI.Graphics();
-            heading.lineStyle(2, 0x00FF00, 1);
-            heading.moveTo(player1.position.x - (hx * 30), player1.position.y - (hy * 30));
-            heading.lineTo(player1.position.x - (hx * 50), player1.position.y - (hy * 50));
-            stage.addChild(heading);
+
+            player.vx = hx / 2;
+            player.vy = hy / 2;
+
+            updateHeading(1, player);
+
           } else { // we're going straight forward
-            player1.vx = -hx / 2;
-            player1.vy = -hy / 2;
-            stage.removeChild(heading);
-            heading = new PIXI.Graphics();
-            heading.lineStyle(2, 0x00FF00, 1);
-            heading.moveTo(player1.position.x - (hx * 30), player1.position.y - (hy * 30));
-            heading.lineTo(player1.position.x - (hx * 50), player1.position.y - (hy * 50));
-            stage.addChild(heading);
+            player.vx = -hx / (1 + (5 - left));
+            player.vy = -hy / (1 + (5 - left));
+
+            updateHeading(1, player);
           }
         }
       }
+    }
+
+    function updateHeading(direction, player) {
+      var angle = player.rotation - Math.PI; 
+      var turretAngle = player.turret.rotation;
+      var deltaAngle = direction * turretAngle + direction * angle;
+      var hx = Math.cos(deltaAngle);
+      var hy = Math.sin(deltaAngle);
+      //console.log(hx + ", " + hy);
+
+      stage.removeChild(heading);
+      heading = new PIXI.Graphics();
+      heading.lineStyle(2, 0x00FF00, 1);
+      heading.moveTo(player.position.x - direction * (hx * 30), player.position.y - direction * (hy * 30));
+      heading.lineTo(player.position.x - direction * (hx * 50), player.position.y - direction * (hy * 50));
+      stage.addChild(heading);
     }
 
     function moveTank(player) { // rename this to setVelocity?
