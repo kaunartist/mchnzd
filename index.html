@@ -54,7 +54,7 @@
     }
 
     class Tank extends PIXI.Container {
-      constructor(x, y) {
+      constructor(x, y, label, labelColor) {
         super();
         this.tankbody = new PIXI.Graphics();
         this.tankbody.beginFill(0x000000).lineStyle(0.5, 0xffffff).drawRect(0, 0, 40, 40).endFill();
@@ -71,6 +71,11 @@
         this.heading.lineStyle(2, 0x00FF00, 1);
         this.heading.moveTo(this.position.x + 30, this.position.y + 2);
         this.heading.lineTo(this.position.x + 50, this.position.y + 2);
+
+        this.label = new PIXI.Text(label, {fontFamily: "Futura", fontSize: 10, fill: labelColor});
+        this.label.pivot.set(this.label.width / 2,this.label.height / 2);
+        this.label.rotation = deg2rad(270);
+        this.label.position.set(8, 6);
 
 
         this.turret.addChild(turretbase);
@@ -96,6 +101,7 @@
 
         this.addChild(this.tankbody);
         this.addChild(this.turret);
+        this.addChild(this.label);
         this.position.set(x, y);
       }
 
@@ -195,8 +201,8 @@
     }
 
     class TankBot extends Tank {
-      constructor(x, y) {
-        super(x, y);
+      constructor(x, y, label, labelColor) {
+        super(x, y, label, labelColor);
         this.target = new PIXI.Point(x,y);
         this.state = new FSM('move');
       }
@@ -349,6 +355,8 @@
       bots = [];
 
       //this code from a tutorial, don't quite trust it yet
+      //it puts too much into the setup function.
+      // gameplay consequences of keyboard presses shouldn't be in setup.
       //Capture the keyboard arrow keys
       var rotateturretleft = keyboard(65),
           rotateturretright = keyboard(68),
@@ -447,14 +455,14 @@
       rightgeardown.release = function() {
       };
 
-      player1 = new Tank(70, 200);
+      player1 = new Tank(70, 200, "X", 0x00ffff);
       player1.hud.position.set(20, 480);
       stage.addChild(player1.hud);
 
       for (var b = 0; b < 4; b++) {
         var randx = randomInt(0, stage.width);
         var randy = randomInt(0, stage.height);
-        var bot = new TankBot(randx, randy);
+        var bot = new TankBot(randx, randy, b+1, "yellow");
         stage.addChild(bot.hud);
         bot.hud.position.set(20, 20 + 20 * b);
 
