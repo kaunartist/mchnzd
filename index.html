@@ -16,19 +16,19 @@
     class TankHud extends PIXI.Container {
       constructor() {
         super();
-        this.leftGear = new PIXI.Text("1", {fontFamily: "Futura", fontSize: 12, fill: "red"});
+        this.leftGear = new PIXI.Text("1", {fontFamily: "Futura", fontSize: 12, fill: 0xff7f00});
         this.leftGear.position.set(10, 0);
-        this.gas = new PIXI.Text("GAS", {fontFamily: "Futura", fontSize: 12, fill: "red"});
+        this.gas = new PIXI.Text("GAS", {fontFamily: "Futura", fontSize: 12, fill: 0xff7f00});
         this.gas.position.set(30, 0);
-        this.rightGear = new PIXI.Text("1", {fontFamily: "Futura", fontSize: 12, fill: "red"});
+        this.rightGear = new PIXI.Text("1", {fontFamily: "Futura", fontSize: 12, fill: 0xff7f00});
         this.rightGear.position.set(90, 0);
-        this.bodyRotation = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 12, fill: "red"});
+        this.bodyRotation = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 12, fill: 0xff7f00});
         this.bodyRotation.position.set(120, 0);
-        this.turretRotation = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 12, fill: "red"});
+        this.turretRotation = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 12, fill: 0xff7f00});
         this.turretRotation.position.set(180, 0);
-        this.ammo = new PIXI.Text("10", {fontFamily: "Futura", fontSize: 12, fill: "red"});
+        this.ammo = new PIXI.Text("10", {fontFamily: "Futura", fontSize: 12, fill: 0xff7f00});
         this.ammo.position.set(260, 0);
-        this.cooldown = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 12, fill: "red"});
+        this.cooldown = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 12, fill: 0xff7f00});
         this.cooldown.position.set(310, 0);
         this.addChild(this.leftGear);
         this.addChild(this.rightGear);
@@ -44,7 +44,7 @@
       constructor(player, x, y, vx, vy, angle) {
         super();
         this.player = player;
-        this.beginFill(0xFFFFFF).lineStyle(0.5, 0xFF0000).drawRect(0, 0, 6, 2).endFill();
+        this.beginFill(0xFFFFFF).lineStyle(0.5, 0xff7f00).drawRect(0, 0, 6, 2).endFill();
         this.vx = vx;
         this.vy = vy;
         this.position.set(x, y);
@@ -67,8 +67,9 @@
         turretbarrel.pivot.set(0, 2);
 
         this.hud = new TankHud();
+        this.headingColor = 0x22ff4e;
         this.heading = new PIXI.Graphics();
-        this.heading.lineStyle(2, 0x00FF00, 1);
+        this.heading.lineStyle(2, this.headingColor, 1);
         this.heading.moveTo(this.position.x + 30, this.position.y + 2);
         this.heading.lineTo(this.position.x + 50, this.position.y + 2);
 
@@ -205,6 +206,7 @@
         super(x, y, label, labelColor);
         this.target = new PIXI.Point(x,y);
         this.state = new FSM('move');
+        this.headingColor = 0xff5555;
       }
 
       plan() {
@@ -215,7 +217,7 @@
           // what's next
           //console.log("At destination");
           this.engineOff();
-          this.hud.gas.style.fill = 0xff0000;
+          this.hud.gas.style.fill = 0xff7f00;
           this.state.changeState('action');
         } else {
           var angle = this.isFacingTarget();
@@ -252,7 +254,7 @@
       moveForward() {
         if (this.power != 1) {
           this.engineOn();
-          this.hud.gas.style.fill = 0x00ff00;
+          this.hud.gas.style.fill = 0x22ff4e;
         }
         if (this.leftGear < this.rightGear) {
           // we are turning left
@@ -309,7 +311,7 @@
       turnTo(point, direction) {
         if (this.power != 1) {
           this.engineOn();
-          this.hud.gas.style.fill = 0x00ff00;
+          this.hud.gas.style.fill = 0x22ff4e;
         }
 
         if (direction < 0) {
@@ -427,11 +429,11 @@
       //Gas
       gas.press = function() {
         player1.engineOn();
-        player1.hud.gas.style.fill = 0x00ff00;
+        player1.hud.gas.style.fill = 0x22ff4e;
       };
       gas.release = function() {
         player1.engineOff();
-        player1.hud.gas.style.fill = 0xff0000;
+        player1.hud.gas.style.fill = 0xff7f00;
       };
 
       //Right
@@ -462,7 +464,8 @@
       for (var b = 0; b < 4; b++) {
         var randx = randomInt(0, stage.width);
         var randy = randomInt(0, stage.height);
-        var bot = new TankBot(randx, randy, b+1, "yellow");
+        var yellow = 0xffff55; //0xfefd3f
+        var bot = new TankBot(randx, randy, b+1, yellow);
         stage.addChild(bot.hud);
         bot.hud.position.set(20, 20 + 20 * b);
 
@@ -657,7 +660,7 @@
 
       stage.removeChild(player.heading);
       player.heading = new PIXI.Graphics();
-      player.heading.lineStyle(2, 0x00FF00, 1);
+      player.heading.lineStyle(2, player.headingColor, 1);
       player.heading.moveTo(player.position.x - direction * (hx * 30), player.position.y - direction * (hy * 30));
       player.heading.lineTo(player.position.x - direction * (hx * 50), player.position.y - direction * (hy * 50));
       stage.addChild(player.heading);
