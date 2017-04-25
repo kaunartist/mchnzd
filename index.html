@@ -13,6 +13,33 @@
   <script src="sound.js"></script>
   <body>
   <script type="text/javascript">
+    class TankHud extends PIXI.Container {
+      constructor() {
+        super();
+        this.leftGear = new PIXI.Text("1", {fontFamily: "Futura", fontSize: 12, fill: "red"});
+        this.leftGear.position.set(10, 0);
+        this.gas = new PIXI.Text("GAS", {fontFamily: "Futura", fontSize: 12, fill: "red"});
+        this.gas.position.set(30, 0);
+        this.rightGear = new PIXI.Text("1", {fontFamily: "Futura", fontSize: 12, fill: "red"});
+        this.rightGear.position.set(90, 0);
+        this.bodyRotation = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 12, fill: "red"});
+        this.bodyRotation.position.set(120, 0);
+        this.turretRotation = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 12, fill: "red"});
+        this.turretRotation.position.set(180, 0);
+        this.ammo = new PIXI.Text("10", {fontFamily: "Futura", fontSize: 12, fill: "red"});
+        this.ammo.position.set(260, 0);
+        this.cooldown = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 12, fill: "red"});
+        this.cooldown.position.set(310, 0);
+        this.addChild(this.leftGear);
+        this.addChild(this.rightGear);
+        this.addChild(this.gas);
+        this.addChild(this.bodyRotation);
+        this.addChild(this.turretRotation);
+        this.addChild(this.ammo);
+        this.addChild(this.cooldown);
+      }
+    }
+
     class Projectile extends PIXI.Graphics {
       constructor(player, x, y, vx, vy, angle) {
         super();
@@ -39,6 +66,13 @@
         turretbarrel.beginFill(0x000000).lineStyle(0.5, 0xffffff).drawRect(0, 0, 26, 4).endFill();
         turretbarrel.pivot.set(0, 2);
 
+        this.hud = new TankHud();
+        this.heading = new PIXI.Graphics();
+        this.heading.lineStyle(2, 0x00FF00, 1);
+        this.heading.moveTo(this.position.x + 30, this.position.y + 2);
+        this.heading.lineTo(this.position.x + 50, this.position.y + 2);
+
+
         this.turret.addChild(turretbase);
         this.turret.addChild(turretbarrel);
         this.turret.position.set(20, 20);
@@ -57,6 +91,8 @@
 
         this.cooldown = 0;
         this.ammo = 10;
+
+        this.clock = 30;
 
         this.addChild(this.tankbody);
         this.addChild(this.turret);
@@ -173,6 +209,7 @@
           // what's next
           //console.log("At destination");
           this.engineOff();
+          this.hud.gas.style.fill = 0xff0000;
           this.state.changeState('action');
         } else {
           var angle = this.isFacingTarget();
@@ -209,6 +246,7 @@
       moveForward() {
         if (this.power != 1) {
           this.engineOn();
+          this.hud.gas.style.fill = 0x00ff00;
         }
         if (this.leftGear < this.rightGear) {
           // we are turning left
@@ -251,7 +289,7 @@
         var angle = Math.acos(dotproduct);
         var degrees = rad2deg(angle);
         //console.log(parseInt(this.position.x) + "," + parseInt(this.position.y) + " vs " + parseInt(target.x) + "," + parseInt(target.y));
-        console.log(degrees);
+        //console.log(degrees);
 
         if (parseInt(degrees) < 0) {
           return -1;
@@ -265,6 +303,7 @@
       turnTo(point, direction) {
         if (this.power != 1) {
           this.engineOn();
+          this.hud.gas.style.fill = 0x00ff00;
         }
 
         if (direction < 0) {
@@ -280,12 +319,12 @@
           if (this.leftGear < this.rightGear) {
             this.gearUpLeft();
             //this.gearDownRight();
-            console.log("Gearing up left to turn");
-            console.log(this.leftGear + " / " + this.rightGear);
+            //console.log("Gearing up left to turn");
+            //console.log(this.leftGear + " / " + this.rightGear);
           } else if (this.leftGear == this.rightGear) {
             this.gearDownRight();
-            console.log("Gearing down right to turn");
-            console.log(this.leftGear + " / " + this.rightGear);
+            //console.log("Gearing down right to turn");
+            //console.log(this.leftGear + " / " + this.rightGear);
           } else if (this.leftGear > this.rightGear) {
             // we're good
           }
@@ -296,8 +335,7 @@
     // END CLASS DEFINITIONS
 
     // GLOBALS
-    var renderer, stage, player1, heading, projectiles;
-    var leftGearHud, rightGearHud, gasHud, rotationHud, turretRotationHud, ammoHud, cooldownHud;
+    var renderer, stage, player1, bots, heading, projectiles;
     var state = play;
 
     // GAME CODE
@@ -308,6 +346,7 @@
       document.body.appendChild(renderer.view);
       stage = new PIXI.Container();
       projectiles = [];
+      bots = [];
 
       //this code from a tutorial, don't quite trust it yet
       //Capture the keyboard arrow keys
@@ -321,28 +360,13 @@
           rightgearup = keyboard(79),
           rightgeardown = keyboard(76);
 
-      leftGearHud = new PIXI.Text("1", {fontFamily: "Futura", fontSize: 24, fill: "red"});
-      leftGearHud.position.set(10, 460);
-      gasHud = new PIXI.Text("GAS", {fontFamily: "Futura", fontSize: 24, fill: "red"});
-      gasHud.position.set(30, 460);
-      rightGearHud = new PIXI.Text("1", {fontFamily: "Futura", fontSize: 24, fill: "red"});
-      rightGearHud.position.set(90, 460);
-      rotationHud = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 24, fill: "red"});
-      rotationHud.position.set(120, 460);
-      turretRotationHud = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 24, fill: "red"});
-      turretRotationHud.position.set(180, 460);
-      ammoHud = new PIXI.Text("10", {fontFamily: "Futura", fontSize: 24, fill: "red"});
-      ammoHud.position.set(260, 460);
-      cooldownHud = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 24, fill: "red"});
-      cooldownHud.position.set(310, 460);
-
       //Shoot gun
       shoot.press = function() {
         if (player1.hasAmmo() && player1.cooldown == 0) {
           shootSound();
           var round = player1.fireProjectile();
-          ammoHud.text = player1.ammo;
-          cooldownHud.text = player1.cooldown;
+          player1.hud.ammo.text = player1.ammo;
+          player1.hud.cooldown.text = player1.cooldown;
           projectiles.push(round);
           stage.addChild(round);
         }
@@ -374,7 +398,7 @@
       leftgearup.press = function() {
         if (!leftgeardown.isDown) {
           player1.gearUpLeft();
-          leftGearHud.text = player1.leftGear;
+          player1.hud.leftGear.text = player1.leftGear;
         }
       };
       leftgearup.release = function() {
@@ -385,7 +409,7 @@
       leftgeardown.press = function() {
         if (!leftgearup.isDown) {
           player1.gearDownLeft();
-          leftGearHud.text = player1.leftGear;
+          player1.hud.leftGear.text = player1.leftGear;
         }
       };
       leftgeardown.release = function() {
@@ -395,18 +419,18 @@
       //Gas
       gas.press = function() {
         player1.engineOn();
-        gasHud.style.fill = 0x00ff00;
+        player1.hud.gas.style.fill = 0x00ff00;
       };
       gas.release = function() {
         player1.engineOff();
-        gasHud.style.fill = 0xff0000;
+        player1.hud.gas.style.fill = 0xff0000;
       };
 
       //Right
       rightgearup.press = function() {
         if (!rightgeardown.isDown) {
           player1.gearUpRight();
-          rightGearHud.text = player1.rightGear;
+          player1.hud.rightGear.text = player1.rightGear;
         }
       };
       rightgearup.release = function() {
@@ -417,40 +441,39 @@
       rightgeardown.press = function() {
         if (!rightgearup.isDown) {
           player1.gearDownRight();
-          rightGearHud.text = player1.rightGear;
+          player1.hud.rightGear.text = player1.rightGear;
         }
       };
       rightgeardown.release = function() {
       };
 
       player1 = new Tank(70, 200);
-      bot = new TankBot(100, 20);
+      player1.hud.position.set(20, 480);
+      stage.addChild(player1.hud);
 
-      bot.setTarget(250, 280);
-      var circle = new PIXI.Graphics();
-      circle.beginFill(0x9966FF);
-      circle.drawCircle(0, 0, 2);
-      circle.endFill();
-      circle.x = 250;
-      circle.y = 280;
-      stage.addChild(circle);
+      for (var b = 0; b < 4; b++) {
+        var randx = randomInt(0, stage.width);
+        var randy = randomInt(0, stage.height);
+        var bot = new TankBot(randx, randy);
+        stage.addChild(bot.hud);
+        bot.hud.position.set(20, 20 + 20 * b);
 
+        randx = randomInt(0, stage.width);
+        randy = randomInt(0, stage.height);
+        bot.setTarget(randx, randy);
 
-      heading = new PIXI.Graphics();
-      heading.lineStyle(2, 0x00FF00, 1);
-      heading.moveTo(player1.position.x + 30, player1.position.y + 2);
-      heading.lineTo(player1.position.x + 50, player1.position.y + 2);
+        var circle = new PIXI.Graphics();
+        circle.beginFill(0x9966FF);
+        circle.drawCircle(0, 0, 2);
+        circle.endFill();
+        circle.x = randx;
+        circle.y = randy;
+        stage.addChild(circle);
+        stage.addChild(bot);
+        bots.push(bot);
+      }
 
       stage.addChild(player1);
-      stage.addChild(bot);
-      stage.addChild(leftGearHud);
-      stage.addChild(rightGearHud);
-      stage.addChild(gasHud);
-      stage.addChild(rotationHud);
-      stage.addChild(turretRotationHud);
-      stage.addChild(ammoHud);
-      stage.addChild(cooldownHud);
-      stage.addChild(heading);
       gameLoop();
     }
 
@@ -463,22 +486,35 @@
     function play() {
       updateProjectiles();
 
-      //updatePlayers();
+      updatePlayers();
 
       updateBots();
 
 
       // actually move it based on those calculations
-      /*
       if (player1.power == 1) {
+        player1.clock++;
+        if (player1.clock >= 30) {
+          moveSound();
+          player1.clock = 0;
+        }
         player1.x += player1.vx;
         player1.y += player1.vy;
       }
-      */
 
-      if (bot.power == 1) {
-        bot.x += bot.vx;
-        bot.y += bot.vy;
+      for (var b = 0; b < bots.length; b++) {
+        var bot = bots[b];
+        if (bot.power == 1) {
+          // play movement sounds
+          bot.clock++;
+          if (bot.clock >= 30) {
+            //moveSound();
+            bot.clock = 0;
+          }
+
+          bot.x += bot.vx;
+          bot.y += bot.vy;
+        }
       }
     }
 
@@ -502,25 +538,28 @@
       turnTank(player1);
       if (player1.cooldown > 0) {
         player1.cooldown -= 1;
-        cooldownHud.text = player1.cooldown;
+        player1.hud.cooldown.text = player1.cooldown;
       }
     }
 
     function updateBots() {
-      var state = bot.state.getState();
-      if (state == 'plan') {
-        bot.plan();
-      } else if (state == 'move') {
-        bot.move();
-      } else if (state == 'action') {
-        bot.action();
+      for (var b = 0; b < bots.length; b++) {
+        var bot = bots[b];
+        var state = bot.state.getState();
+        if (state == 'plan') {
+          bot.plan();
+        } else if (state == 'move') {
+          bot.move();
+        } else if (state == 'action') {
+          bot.action();
+        }
+        turnTank(bot);
       }
-      turnTank(bot);
     }
 
     function turnTurret(player) {
       player.turret.rotation += player.turretvelocity;
-      turretRotationHud.text = parseInt(rad2deg(player.turret.rotation));
+      player.hud.turretRotation.text = parseInt(rad2deg(player.turret.rotation));
       if (player.turret.rotation > Math.PI * 2) {
         player.turret.rotation = 0;
       } else if (player.turret.rotation < -Math.PI * 2) {
@@ -563,7 +602,7 @@
           } else if (player.rotation < -Math.PI * 2) {
             player.rotation = 0;
           }
-          rotationHud.text = parseInt(rad2deg(player.rotation));
+          player.hud.bodyRotation.text = parseInt(rad2deg(player.rotation));
         } else {
           var angle = player.rotation - Math.PI; 
           var hx = Math.cos(angle);
@@ -608,12 +647,12 @@
       var hy = Math.sin(deltaAngle);
       //console.log(hx + ", " + hy);
 
-      stage.removeChild(heading);
-      heading = new PIXI.Graphics();
-      heading.lineStyle(2, 0x00FF00, 1);
-      heading.moveTo(player.position.x - direction * (hx * 30), player.position.y - direction * (hy * 30));
-      heading.lineTo(player.position.x - direction * (hx * 50), player.position.y - direction * (hy * 50));
-      stage.addChild(heading);
+      stage.removeChild(player.heading);
+      player.heading = new PIXI.Graphics();
+      player.heading.lineStyle(2, 0x00FF00, 1);
+      player.heading.moveTo(player.position.x - direction * (hx * 30), player.position.y - direction * (hy * 30));
+      player.heading.lineTo(player.position.x - direction * (hx * 50), player.position.y - direction * (hy * 50));
+      stage.addChild(player.heading);
     }
 
     function shootSound() {
@@ -634,7 +673,29 @@
           );
     }
 
+    function moveSound() {
+      soundEffect(
+          200,           //frequency
+          0,                //attack
+          0.1,              //decay
+          "sawtooth",       //waveform
+          1,                //Volume
+          -0.8,             //pan
+          0,                //wait before playing
+          0,             //pitch bend amount
+          false,            //reverse bend
+          0,                //random pitch range
+          25,               //dissonance
+          [0.08, 0.2, 2000], //echo array: [delay, feedback, filter]
+          undefined         //reverb array: [duration, decay, reverse?]
+          );
+    }
+
     // UTILITY
+    function randomInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
     function keyboard(keyCode) {
       var key = {};
       key.code = keyCode;
