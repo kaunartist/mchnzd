@@ -10,8 +10,22 @@
     </style>
   </head>
   <script src="pixi.min.js"></script>
+  <script src="sound.js"></script>
   <body>
   <script type="text/javascript">
+    class Projectile extends PIXI.Graphics {
+      constructor(player, x, y, vx, vy, angle) {
+        super();
+        this.player = player;
+        this.beginFill(0xFFFFFF).lineStyle(0.5, 0xFF0000).drawRect(0, 0, 6, 2).endFill();
+        this.vx = vx;
+        this.vy = vy;
+        this.position.set(x, y);
+        this.rotation = angle;
+        this.ttl = 40;
+      }
+    }
+
     class Tank extends PIXI.Container {
       constructor(x, y) {
         super();
@@ -41,10 +55,33 @@
         this.leftGear = 1;
         this.rightGear = 1;
 
+        this.cooldown = 0;
+        this.ammo = 10;
 
         this.addChild(this.tankbody);
         this.addChild(this.turret);
         this.position.set(x, y);
+      }
+
+      hasAmmo() {
+        return this.ammo > 0 ? true : false;
+      }
+
+      fireProjectile() {
+        // create a projectile with a heading/velocity
+        this.ammo -= 1;
+        this.cooldown = 150;
+
+        var angle = this.rotation - Math.PI; 
+        var turretAngle = this.turret.rotation;
+        var deltaAngle = turretAngle + angle;
+        var hx = Math.cos(deltaAngle); // velocity
+        var hy = Math.sin(deltaAngle);
+        var muzzlex = this.position.x - (hx * 33);
+        var muzzley = this.position.y + 1 - (hy * 33);
+
+        var round = new Projectile(this, muzzlex, muzzley, -hx * 10, -hy * 10, deltaAngle);
+        return round;
       }
 
       rotateTurret(direction) {
@@ -100,11 +137,167 @@
       }
     }
 
+    class FSM {
+      constructor(startingState) {
+        this.states = ['plan','move','action'];
+        if (this.states.indexOf(startingState) != -1) {
+          this.state = startingState;
+        } else {
+          this.state = 'plan';
+        }
+      }
+
+      changeState(state) {
+        if (this.states.indexOf(state) != -1) {
+          this.state = state;
+        }
+      }
+
+      getState() {
+        return this.state;
+      }
+    }
+
+    class TankBot extends Tank {
+      constructor(x, y) {
+        super(x, y);
+        this.target = new PIXI.Point(x,y);
+        this.state = new FSM('move');
+      }
+
+      plan() {
+      }
+
+      move() {
+        if (this.isAtDestination()) {
+          // what's next
+          //console.log("At destination");
+          this.engineOff();
+          this.state.changeState('action');
+        } else {
+          var angle = this.isFacingTarget();
+          if (angle == 0) {
+            //console.log("facing destination, moving forward");
+            //console.log(this.position.x + ", " + this.position.y);
+            // we're pointing the right way, start moving
+            this.moveForward();
+          } else {
+            // turn to face the target
+            this.turnTo(this.getTarget(), angle);
+          }
+        }
+      }
+
+      action() {
+      }
+
+      setTarget(x, y) {
+        //this.target.push(new PIXI.Point(x, y));
+        this.target = new PIXI.Point(x, y);
+      }
+
+      getTarget() {
+        return this.target;//.slice(0, 1);
+      }
+
+      isAtDestination() {
+        var target = this.getTarget();
+        //console.log(parseInt(this.position.x) + "," + parseInt(this.position.y) + " vs " + parseInt(target.x) + "," + parseInt(target.y));
+        return parseInt(this.position.x) == parseInt(target.x) && parseInt(this.position.y) == parseInt(target.y);
+      }
+
+      moveForward() {
+        if (this.power != 1) {
+          this.engineOn();
+        }
+        if (this.leftGear < this.rightGear) {
+          // we are turning left
+          this.gearUpLeft();
+        } else if (this.leftGear > this.rightGear) {
+          // we are turning right
+          this.gearUpRight();
+        } else if (this.leftGear < 1) {
+          // we're in reverse
+          this.gearUpLeft();
+          this.gearUpRight();
+        } else {
+          // we're going forward
+          if (this.leftGear < 5) {
+            this.gearUpLeft();
+            this.gearUpRight();
+          }
+        }
+      }
+
+      isFacingTarget() {
+        var target = this.getTarget();
+        var targetx = target.x - this.position.x;
+        var targety = target.y - this.position.y;
+        var magnitude = Math.sqrt((targetx * targetx) + (targety * targety));
+        // Unit vector between position and target
+        var target_ux = targetx / magnitude;
+        var target_uy = targety / magnitude;
+
+        // Unit vector of current heading
+        var heading = this.rotation;
+        var hx = Math.cos(heading);
+        var hy = Math.sin(heading);
+        var heading_magnitude = Math.sqrt((hx * hx) + (hy * hy));
+        var heading_ux = hx / heading_magnitude;
+        var heading_uy = hy / heading_magnitude;
+
+
+        var dotproduct = (target_ux * heading_ux) + (target_uy * heading_uy);
+        var angle = Math.acos(dotproduct);
+        var degrees = rad2deg(angle);
+        //console.log(parseInt(this.position.x) + "," + parseInt(this.position.y) + " vs " + parseInt(target.x) + "," + parseInt(target.y));
+        console.log(degrees);
+
+        if (parseInt(degrees) < 0) {
+          return -1;
+        } else if (parseInt(degrees) > 0) {
+          return 1;
+        } else {
+          return 0;
+        }
+      }
+
+      turnTo(point, direction) {
+        if (this.power != 1) {
+          this.engineOn();
+        }
+
+        if (direction < 0) {
+          if (this.leftGear < this.rightGear) {
+            // we're good
+          } else if (this.leftGear == this.rightGear) {
+            this.gearDownLeft();
+          } else if (this.leftGear > this.rightGear) {
+            this.gearUpRight();
+            this.gearDownLeft();
+          }
+        } else if (direction > 0) {
+          if (this.leftGear < this.rightGear) {
+            this.gearUpLeft();
+            //this.gearDownRight();
+            console.log("Gearing up left to turn");
+            console.log(this.leftGear + " / " + this.rightGear);
+          } else if (this.leftGear == this.rightGear) {
+            this.gearDownRight();
+            console.log("Gearing down right to turn");
+            console.log(this.leftGear + " / " + this.rightGear);
+          } else if (this.leftGear > this.rightGear) {
+            // we're good
+          }
+        }
+      }
+    }
+
     // END CLASS DEFINITIONS
 
     // GLOBALS
-    var renderer, stage, player1, heading;
-    var leftGearHud, rightGearHud, gasHud, rotationHud, turretRotationHud;
+    var renderer, stage, player1, heading, projectiles;
+    var leftGearHud, rightGearHud, gasHud, rotationHud, turretRotationHud, ammoHud, cooldownHud;
     var state = play;
 
     // GAME CODE
@@ -114,6 +307,7 @@
       renderer = PIXI.autoDetectRenderer(512, 512, {antialias: false});
       document.body.appendChild(renderer.view);
       stage = new PIXI.Container();
+      projectiles = [];
 
       //this code from a tutorial, don't quite trust it yet
       //Capture the keyboard arrow keys
@@ -129,14 +323,32 @@
 
       leftGearHud = new PIXI.Text("1", {fontFamily: "Futura", fontSize: 24, fill: "red"});
       leftGearHud.position.set(10, 460);
-      rightGearHud = new PIXI.Text("1", {fontFamily: "Futura", fontSize: 24, fill: "red"});
-      rightGearHud.position.set(90, 460);
       gasHud = new PIXI.Text("GAS", {fontFamily: "Futura", fontSize: 24, fill: "red"});
       gasHud.position.set(30, 460);
+      rightGearHud = new PIXI.Text("1", {fontFamily: "Futura", fontSize: 24, fill: "red"});
+      rightGearHud.position.set(90, 460);
       rotationHud = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 24, fill: "red"});
       rotationHud.position.set(120, 460);
       turretRotationHud = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 24, fill: "red"});
       turretRotationHud.position.set(180, 460);
+      ammoHud = new PIXI.Text("10", {fontFamily: "Futura", fontSize: 24, fill: "red"});
+      ammoHud.position.set(260, 460);
+      cooldownHud = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 24, fill: "red"});
+      cooldownHud.position.set(310, 460);
+
+      //Shoot gun
+      shoot.press = function() {
+        if (player1.hasAmmo() && player1.cooldown == 0) {
+          shootSound();
+          var round = player1.fireProjectile();
+          ammoHud.text = player1.ammo;
+          cooldownHud.text = player1.cooldown;
+          projectiles.push(round);
+          stage.addChild(round);
+        }
+      };
+      shoot.release = function() {
+      };
 
       //Turret rotation
       rotateturretleft.press = function() {
@@ -183,11 +395,11 @@
       //Gas
       gas.press = function() {
         player1.engineOn();
-        gasHud.style.fill = "green";
+        gasHud.style.fill = 0x00ff00;
       };
       gas.release = function() {
         player1.engineOff();
-        gasHud.style.fill = "red";
+        gasHud.style.fill = 0xff0000;
       };
 
       //Right
@@ -212,7 +424,16 @@
       };
 
       player1 = new Tank(70, 200);
-      player2 = new Tank(100, 20);
+      bot = new TankBot(100, 20);
+
+      bot.setTarget(250, 280);
+      var circle = new PIXI.Graphics();
+      circle.beginFill(0x9966FF);
+      circle.drawCircle(0, 0, 2);
+      circle.endFill();
+      circle.x = 250;
+      circle.y = 280;
+      stage.addChild(circle);
 
 
       heading = new PIXI.Graphics();
@@ -221,12 +442,14 @@
       heading.lineTo(player1.position.x + 50, player1.position.y + 2);
 
       stage.addChild(player1);
-      stage.addChild(player2);
+      stage.addChild(bot);
       stage.addChild(leftGearHud);
       stage.addChild(rightGearHud);
       stage.addChild(gasHud);
       stage.addChild(rotationHud);
       stage.addChild(turretRotationHud);
+      stage.addChild(ammoHud);
+      stage.addChild(cooldownHud);
       stage.addChild(heading);
       gameLoop();
     }
@@ -238,15 +461,61 @@
     }
 
     function play() {
-      turnTurret(player1);
-      turnTank(player1);
-      //moveTank(player1);
+      updateProjectiles();
+
+      //updatePlayers();
+
+      updateBots();
+
 
       // actually move it based on those calculations
+      /*
       if (player1.power == 1) {
         player1.x += player1.vx;
         player1.y += player1.vy;
       }
+      */
+
+      if (bot.power == 1) {
+        bot.x += bot.vx;
+        bot.y += bot.vy;
+      }
+    }
+
+    function updateProjectiles() {
+      for (var i=0; i < projectiles.length; i++) {
+        var round = projectiles[i];
+        round.x += round.vx;
+        round.y += round.vy;
+        round.ttl -= 1;
+        if (round.ttl < 0) {
+          var pos = projectiles.indexOf(round);
+          projectiles.splice(pos, 1);
+          stage.removeChild(round);
+        }
+      }
+    }
+
+    function updatePlayers() {
+      // eventually do a foreach, for now just one player
+      turnTurret(player1);
+      turnTank(player1);
+      if (player1.cooldown > 0) {
+        player1.cooldown -= 1;
+        cooldownHud.text = player1.cooldown;
+      }
+    }
+
+    function updateBots() {
+      var state = bot.state.getState();
+      if (state == 'plan') {
+        bot.plan();
+      } else if (state == 'move') {
+        bot.move();
+      } else if (state == 'action') {
+        bot.action();
+      }
+      turnTank(bot);
     }
 
     function turnTurret(player) {
@@ -280,8 +549,11 @@
             player.vx = -hx / 2;
             player.vy = -hy / 2;
           } else {
-            player.vx = hx / 2;
-            player.vy = hy / 2;
+            // this needs work, it should not be an even acceleration at all gears
+            // turns at 1/2, 2/3, etc. should be slower than a turn at 4/5
+            player.vx = hx * 0.8;
+            player.vy = hy * 0.8;
+            //console.log(delta);
           }
 
           updateHeading(1, player);
@@ -305,8 +577,22 @@
             updateHeading(1, player);
 
           } else { // we're going straight forward
-            player.vx = -hx / (1 + (5 - left));
-            player.vy = -hy / (1 + (5 - left));
+            // this formula needs adjusting, going forward is slower than turning at all gears except 5
+            // if left = 5, vx = -hx        and that's about good
+            // if left = 4, vx = -hx / 2    this should be more like 1.2
+            // if left = 3, vx = -hx / 3    and 1.4
+            // if left = 2, vx = -hx / 4    and 1.6
+            // if left = 1, vx = -hx / 5    and 1.8 or 2
+
+            // what about (5 - left)/5?
+            // l=5 -> 0
+            // l=4 -> 1/5
+            // l=3 -> 2/5
+            // l=2 -> 3/5
+            // l=1 -> 4/5
+
+            player.vx = -hx / (1 + (5 - left)/5); 
+            player.vy = -hy / (1 + (5 - left)/5);
 
             updateHeading(1, player);
           }
@@ -330,16 +616,22 @@
       stage.addChild(heading);
     }
 
-    function moveTank(player) { // rename this to setVelocity?
-      // calculate rotation vector
-      if (player.power == 1) {
-        var currentRotation = player.rotation;
-
-        var angle = currentRotation - Math.PI; // get the rotation angle expressed between -Pi and Pi instead of 0 to 2Pi like it is stored
-        player.vx = Math.cos(angle);
-        player.vy = Math.sin(angle);
-      }
-      // set velocity to that vector
+    function shootSound() {
+      soundEffect(
+          1046.5,           //frequency
+          0,                //attack
+          0.3,              //decay
+          "sawtooth",       //waveform
+          1,                //Volume
+          -0.8,             //pan
+          0,                //wait before playing
+          1200,             //pitch bend amount
+          false,            //reverse bend
+          0,                //random pitch range
+          25,               //dissonance
+          [0.2, 0.2, 2000], //echo array: [delay, feedback, filter]
+          undefined         //reverb array: [duration, decay, reverse?]
+          );
     }
 
     // UTILITY
