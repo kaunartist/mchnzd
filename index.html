@@ -13,6 +13,10 @@
   <script src="sound.js"></script>
   <body>
   <script type="text/javascript">
+    // GLOBALS
+    var renderer, stage, player1, bots, heading, projectiles;
+    var state = play;
+
     class TankHud extends PIXI.Container {
       constructor() {
         super();
@@ -40,6 +44,35 @@
       }
     }
 
+    class Particle extends PIXI.Graphics {
+      constructor(damage) {
+        super();
+        var randx = randomInt(-10, 10);
+        var randy = randomInt(-10, 10);
+        this.beginFill(0x000000).lineStyle(0.5, 0xff7f00);
+        this.drawPolygon([
+          -3, 6,             //First point
+          3, 6,              //Second point
+          0, 0                 //Third point
+        ]);
+        this.endFill();
+        //this.triangle = triangle;
+        this.vx = randx / 3;
+        this.vy = randy / 3;
+        this.ttl = randomInt(5, 30);
+        this.direction = randomInt(-1, 1);
+        this.damage = damage;
+      }
+
+      update() {
+        this.position.x += this.vx;
+        this.position.y += this.vy;
+        this.rotation += 0.1 * this.direction;
+        this.alpha -= 0.01;
+        this.ttl -= 1;
+      }
+    }
+
     class Projectile extends PIXI.Graphics {
       constructor(player, x, y, vx, vy, angle) {
         super();
@@ -49,7 +82,38 @@
         this.vy = vy;
         this.position.set(x, y);
         this.rotation = angle;
-        this.ttl = 40;
+        this.ttl = 20;
+        this.dead = false;
+        this.yield = 100;
+        this.damage = 0.5;
+        this.particles = new PIXI.Container();
+        stage.addChild(this.particles);
+      }
+
+      detonate() {
+        if (this.dead) {
+          //console.log(this.particles.children.length);
+          for (var j = 0; j < this.particles.children.length; j++) {
+            var p = this.particles.getChildAt(j);
+            p.update();
+            if (p.ttl < 0) {
+              p.visible = false;
+              this.particles.removeChild(p);
+            }
+          }
+        } else {
+          this.dead = true;
+          this.vx = 0;
+          this.vy = 0;
+          this.visible = false;
+          var x = this.position.x;
+          var y = this.position.y;
+          for (var i = 0; i < this.yield; i++) {
+            var triangle = new Particle(this.damage);
+            triangle.position.set(x,y);
+            this.particles.addChild(triangle);
+          }
+        }
       }
     }
 
@@ -71,7 +135,7 @@
         this.heading = new PIXI.Graphics();
         this.heading.lineStyle(2, this.headingColor, 1);
         this.heading.moveTo(this.position.x + 30, this.position.y + 2);
-        this.heading.lineTo(this.position.x + 50, this.position.y + 2);
+        this.heading.lineTo(this.position.x + 34, this.position.y + 2);
 
         this.label = new PIXI.Text(label, {fontFamily: "Futura", fontSize: 10, fill: labelColor});
         this.label.pivot.set(this.label.width / 2,this.label.height / 2);
@@ -96,7 +160,7 @@
         this.rightGear = 1;
 
         this.cooldown = 0;
-        this.ammo = 10;
+        this.ammo = 100;
 
         this.clock = 30;
 
@@ -113,7 +177,7 @@
       fireProjectile() {
         // create a projectile with a heading/velocity
         this.ammo -= 1;
-        this.cooldown = 150;
+        this.cooldown = 10; //150
 
         var angle = this.rotation - Math.PI; 
         var turretAngle = this.turret.rotation;
@@ -374,10 +438,6 @@
 
     // END CLASS DEFINITIONS
 
-    // GLOBALS
-    var renderer, stage, player1, bots, heading, projectiles;
-    var state = play;
-
     // GAME CODE
     setup();
 
@@ -571,9 +631,17 @@
         round.y += round.vy;
         round.ttl -= 1;
         if (round.ttl < 0) {
-          var pos = projectiles.indexOf(round);
-          projectiles.splice(pos, 1);
-          stage.removeChild(round);
+          if (round.dead) {
+            round.detonate();
+            if (round.particles.children.length == 0) {
+              var pos = projectiles.indexOf(round);
+              projectiles.splice(pos, 1);
+              stage.removeChild(round);
+            }
+          } else {
+            round.detonate();
+          }
+
         }
       }
     }
@@ -697,7 +765,7 @@
       player.heading = new PIXI.Graphics();
       player.heading.lineStyle(2, player.headingColor, 1);
       player.heading.moveTo(player.position.x - direction * (hx * 30), player.position.y - direction * (hy * 30));
-      player.heading.lineTo(player.position.x - direction * (hx * 50), player.position.y - direction * (hy * 50));
+      player.heading.lineTo(player.position.x - direction * (hx * 38), player.position.y - direction * (hy * 38));
       stage.addChild(player.heading);
     }
 
