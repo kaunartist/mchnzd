@@ -248,7 +248,12 @@
       isAtDestination() {
         var target = this.getTarget();
         //console.log(parseInt(this.position.x) + "," + parseInt(this.position.y) + " vs " + parseInt(target.x) + "," + parseInt(target.y));
-        return parseInt(this.position.x) == parseInt(target.x) && parseInt(this.position.y) == parseInt(target.y);
+        if (distanceBetween(this.position, target) < 3) {
+          return true;
+        } else {
+          return false;
+        }
+        //return parseInt(this.position.x) == parseInt(target.x) && parseInt(this.position.y) == parseInt(target.y);
       }
 
       moveForward() {
@@ -703,6 +708,10 @@
     }
 
     // UTILITY
+    function distanceBetween(a, b) {
+      return parseInt(Math.sqrt((a.x - b.x)^2 + (a.y - b.y)^2));
+    }
+
     function randomInt(min, max) {
       return Math.floor(Math.random() * (max - min + 1)) + min;
     }
