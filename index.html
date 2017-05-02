@@ -9,13 +9,23 @@
       }
     </style>
   </head>
-  <script src="pixi.min.js"></script>
+  <script src="pixi.4.5.1.min.js"></script>
   <script src="sound.js"></script>
   <body>
   <script type="text/javascript">
     // GLOBALS
     var renderer, stage, player1, bots, heading, projectiles;
     var state = play;
+    var orangetriangle = new PIXI.Graphics();
+    orangetriangle.beginFill(0x000000, 0).lineStyle(1.4, 0xff7f00);
+    orangetriangle.drawPolygon([
+      -4, 8,             //First point
+      4, 8,              //Second point
+      0, 0                 //Third point
+    ]);
+    //orangetriangle.x += 9.1;
+    orangetriangle.endFill();
+    var ot_tex = orangetriangle.generateCanvasTexture(PIXI.scaleModes.DEFAULT);
 
     class TankHud extends PIXI.Container {
       constructor() {
@@ -34,6 +44,9 @@
         this.ammo.position.set(260, 0);
         this.cooldown = new PIXI.Text("0", {fontFamily: "Futura", fontSize: 12, fill: 0xff7f00});
         this.cooldown.position.set(310, 0);
+        this.health = new PIXI.Text("100", {fontFamily: "Futura", fontSize: 12, fill: 0xff7f00});
+        this.health.position.set(330, 0);
+
         this.addChild(this.leftGear);
         this.addChild(this.rightGear);
         this.addChild(this.gas);
@@ -41,6 +54,7 @@
         this.addChild(this.turretRotation);
         this.addChild(this.ammo);
         this.addChild(this.cooldown);
+        this.addChild(this.health);
       }
     }
 
@@ -71,37 +85,38 @@
         this.alpha -= 0.01;
         this.ttl -= 1;
       }
+
+      /*
+      checkCollision(target) {
+        if (!target.dead && hitTestRectangle(this, target)) {
+          target.health -= this.damage;
+          target.hud.health.text = target.health;
+          this.ttl = -1;
+        }
+      }
+      */
     }
 
     class Projectile extends PIXI.Graphics {
       constructor(player, x, y, vx, vy, angle) {
         super();
         this.player = player;
-        this.beginFill(0xFFFFFF).lineStyle(0.5, 0xff7f00).drawRect(0, 0, 6, 2).endFill();
+        this.beginFill(0xFFFFFF).lineStyle(1, 0xff7f00).drawRect(0, 0, 6, 2).endFill();
         this.vx = vx;
         this.vy = vy;
         this.position.set(x, y);
         this.rotation = angle;
         this.ttl = 20;
         this.dead = false;
-        this.yield = 100;
+        this.yield = 50;
         this.damage = 0.5;
-        this.particles = new PIXI.Container();
+        this.particles = new PIXI.ParticleContainer(200, {position: true, rotation: true, alpha: true});
+        this.particleArray = [];
         stage.addChild(this.particles);
       }
 
       detonate() {
-        if (this.dead) {
-          //console.log(this.particles.children.length);
-          for (var j = 0; j < this.particles.children.length; j++) {
-            var p = this.particles.getChildAt(j);
-            p.update();
-            if (p.ttl < 0) {
-              p.visible = false;
-              this.particles.removeChild(p);
-            }
-          }
-        } else {
+        if (!this.dead) {
           this.dead = true;
           this.vx = 0;
           this.vy = 0;
@@ -109,8 +124,17 @@
           var x = this.position.x;
           var y = this.position.y;
           for (var i = 0; i < this.yield; i++) {
-            var triangle = new Particle(this.damage);
-            triangle.position.set(x,y);
+            var triangle = new PIXI.Sprite(ot_tex);
+            triangle.x = x;
+            triangle.y = y;
+            triangle.direction = Math.random() * Math.PI * 2;
+            //triangle.scale.set(0.6,0.6);
+            triangle.anchor.set(0.5);
+            triangle.speed = (1 + Math.random() * 4) * 1.8;
+            triangle.dx = Math.sin(triangle.direction) * triangle.speed;
+            triangle.dy = Math.cos(triangle.direction) * triangle.speed;
+            //triangle.offset = Math.random() * 100;
+            this.particleArray.push(triangle);
             this.particles.addChild(triangle);
           }
         }
@@ -121,13 +145,18 @@
       constructor(x, y, label, labelColor) {
         super();
         this.tankbody = new PIXI.Graphics();
-        this.tankbody.beginFill(0x000000).lineStyle(0.5, 0xffffff).drawRect(0, 0, 40, 40).endFill();
+        this.tankbody.beginFill(0x000000).lineStyle(1, 0xffffff).drawRect(0, 0, 40, 40).endFill();
+
+        this.label = new PIXI.Text(label, {fontFamily: "Futura", fontSize: 10, fill: labelColor});
+        this.label.pivot.set(this.label.width / 2,this.label.height / 2);
+        this.label.rotation = deg2rad(270);
+        this.label.position.set(8, 6);
 
         this.turret = new PIXI.Container();
         var turretbase = new PIXI.Graphics();
-        turretbase.beginFill(0x000000).lineStyle(0.5, 0xffffff).drawCircle(0, 0, 10).endFill();
+        turretbase.beginFill(0x000000).lineStyle(1, 0xffffff).drawCircle(0, 0, 10).endFill();
         var turretbarrel = new PIXI.Graphics();
-        turretbarrel.beginFill(0x000000).lineStyle(0.5, 0xffffff).drawRect(0, 0, 26, 4).endFill();
+        turretbarrel.beginFill(0x000000).lineStyle(1, 0xffffff).drawRect(0, 0, 26, 4).endFill();
         turretbarrel.pivot.set(0, 2);
 
         this.hud = new TankHud();
@@ -136,11 +165,6 @@
         this.heading.lineStyle(2, this.headingColor, 1);
         this.heading.moveTo(this.position.x + 30, this.position.y + 2);
         this.heading.lineTo(this.position.x + 34, this.position.y + 2);
-
-        this.label = new PIXI.Text(label, {fontFamily: "Futura", fontSize: 10, fill: labelColor});
-        this.label.pivot.set(this.label.width / 2,this.label.height / 2);
-        this.label.rotation = deg2rad(270);
-        this.label.position.set(8, 6);
 
 
         this.turret.addChild(turretbase);
@@ -151,6 +175,8 @@
 
         this.pivot.set(20, 20);
 
+        this.health = 100;
+        this.dead = false;
         this.power = 0;
         this.vx = 0;
         this.vy = 0;
@@ -165,8 +191,8 @@
         this.clock = 30;
 
         this.addChild(this.tankbody);
-        this.addChild(this.turret);
         this.addChild(this.label);
+        this.addChild(this.turret);
         this.position.set(x, y);
       }
 
@@ -187,7 +213,7 @@
         var muzzlex = this.position.x - (hx * 33);
         var muzzley = this.position.y + 1 - (hy * 33);
 
-        var round = new Projectile(this, muzzlex, muzzley, -hx * 10, -hy * 10, deltaAngle);
+        var round = new Projectile(this, muzzlex, muzzley, -hx * 15, -hy * 15, deltaAngle);
         return round;
       }
 
@@ -241,6 +267,11 @@
         if (this.rightGear < 0) {
           this.rightGear = 0;
         }
+      }
+
+      hit(damage) {
+        this.health -= damage;
+        this.hud.health.text = this.health;
       }
     }
 
@@ -314,7 +345,7 @@
       }
 
       getTarget() {
-        return this.target;//.slice(0, 1);
+        return this.target;
       }
 
       isAtDestination() {
@@ -447,6 +478,11 @@
       stage = new PIXI.Container();
       projectiles = [];
       bots = [];
+      if(renderer instanceof PIXI.CanvasRenderer) {    console.log("canvas");//canvas renderer
+      } else {    
+        //webgl renderer
+        console.log("webgl");
+      }
 
       //this code from a tutorial, don't quite trust it yet
       //it puts too much into the setup function.
@@ -632,11 +668,57 @@
         round.ttl -= 1;
         if (round.ttl < 0) {
           if (round.dead) {
-            round.detonate();
-            if (round.particles.children.length == 0) {
+            if (round.particleArray.length == 0) {
+              //console.log("NO PARTICLES");
+              stage.removeChild(round.particles);
               var pos = projectiles.indexOf(round);
               projectiles.splice(pos, 1);
               stage.removeChild(round);
+            } else {
+              //console.log("UPDATING PARTICLES " + round.particleArray.length);
+              for (var j = 0; j < round.particleArray.length; j++) {
+                var p = round.particleArray[j];
+                p.x += p.dx;
+                p.y += p.dy;
+                //p.x += Math.sin(p.direction) * p.speed;
+                //p.y += Math.cos(p.direction) * p.speed;
+                //p.rotation = -p.direction + Math.PI;
+                p.rotation += j % 2 == 0 ? 0.1 : -0.1;
+                p.alpha -= 0.02;
+
+                for (var k = 0; k < bots.length; k++) {
+                  if (checkCollision(p, bots[k], round)) {
+                    //console.log("hit bot");
+                    p.visible = false;
+                    bots[k].hit(round.damage);
+                    round.particleArray.splice(j, 1);
+                    round.particles.removeChild(p);
+                    continue;
+                  }
+                }
+                if (checkCollision(p, player1, round)) {
+                  //console.log("hit player");
+                  p.visible = false;
+                  player1.hit(round.damage);
+                  round.particleArray.splice(j, 1);
+                  round.particles.removeChild(p);
+                  continue;
+                }
+                /*
+
+                if (p.alpha <= 0) {
+                  //console.log("faded");
+                  p.visible = false;
+                  round.particleArray.splice(j, 1);
+                  round.particles.removeChild(p);
+                }
+                */
+                if (round.ttl < -1000) {
+                  //console.log("TIME OUT");
+                  round.particleArray.splice(j, 1);
+                  round.particles.removeChild(p);
+                }
+              }
             }
           } else {
             round.detonate();
@@ -648,27 +730,49 @@
 
     function updatePlayers() {
       // eventually do a foreach, for now just one player
-      turnTurret(player1);
-      turnTank(player1);
-      if (player1.cooldown > 0) {
-        player1.cooldown -= 1;
-        player1.hud.cooldown.text = player1.cooldown;
+      if (!player1.dead) {
+        turnTurret(player1);
+        turnTank(player1);
+        if (player1.cooldown > 0) {
+          player1.cooldown -= 1;
+          player1.hud.cooldown.text = player1.cooldown;
+        }
+        if (player1.health <= 0) {
+          player1.dead = true;
+          player1.visible = false;
+          stage.removeChild(player1.heading);
+          //stage.removeChild(player1);
+        }
       }
     }
 
     function updateBots() {
       for (var b = 0; b < bots.length; b++) {
         var bot = bots[b];
-        var state = bot.state.getState();
-        if (state == 'plan') {
-          bot.plan();
-        } else if (state == 'move') {
-          bot.move();
-        } else if (state == 'action') {
-          bot.action();
+        if (!bot.dead) {
+          if (bot.health <= 0) {
+            bot.dead = true;
+            bot.visible = false;
+            stage.removeChild(bot.heading);
+          }
+          var state = bot.state.getState();
+          if (state == 'plan') {
+            bot.plan();
+          } else if (state == 'move') {
+            bot.move();
+          } else if (state == 'action') {
+            bot.action();
+          }
+          turnTank(bot);
         }
-        turnTank(bot);
       }
+    }
+
+    function checkCollision(me, target, round) {
+      if (!target.dead && simpleHitTest(me, target)) {
+        return true;
+      }
+      return false;
     }
 
     function turnTurret(player) {
@@ -771,11 +875,11 @@
 
     function shootSound() {
       soundEffect(
-          1046.5,           //frequency
+          846.5,           //frequency
           0,                //attack
           0.3,              //decay
           "sawtooth",       //waveform
-          1,                //Volume
+          0.2,                //Volume
           -0.8,             //pan
           0,                //wait before playing
           1200,             //pitch bend amount
@@ -815,6 +919,69 @@
 
     function randomInt(min, max) {
       return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function simpleHitTest(r1, r2) {
+      var xdist = r1.position.x - r2.position.x;
+      if (xdist > -r2.width/2 && xdist < r2.width/2) {			
+        var ydist = r1.position.y - r2.position.y;
+        if (ydist > -r2.height/2 && ydist < r2.height/2) {
+          return true;
+        }
+      } else {
+        return false;
+      }
+    }
+
+    function hitTestRectangle(r1, r2) {
+
+      //Define the variables we'll need to calculate
+      var hit, combinedHalfWidths, combinedHalfHeights, vx, vy;
+
+      //hit will determine whether there's a collision
+      hit = false;
+
+      //Find the center points of each sprite
+      r1.centerX = r1.x + r1.width / 2;
+      r1.centerY = r1.y + r1.height / 2;
+      r2.centerX = r2.x + r2.width / 2;
+      r2.centerY = r2.y + r2.height / 2;
+
+      //Find the half-widths and half-heights of each sprite
+      r1.halfWidth = r1.width / 2;
+      r1.halfHeight = r1.height / 2;
+      r2.halfWidth = r2.width / 2;
+      r2.halfHeight = r2.height / 2;
+
+      //Calculate the distance vector between the sprites
+      vx = r1.centerX - r2.centerX;
+      vy = r1.centerY - r2.centerY;
+
+      //Figure out the combined half-widths and half-heights
+      combinedHalfWidths = r1.halfWidth + r2.halfWidth;
+      combinedHalfHeights = r1.halfHeight + r2.halfHeight;
+
+      //Check for a collision on the x axis
+      if (Math.abs(vx) < combinedHalfWidths) {
+
+        //A collision might be occuring. Check for a collision on the y axis
+        if (Math.abs(vy) < combinedHalfHeights) {
+
+          //There's definitely a collision happening
+          hit = true;
+        } else {
+
+          //There's no collision on the y axis
+          hit = false;
+        }
+      } else {
+
+        //There's no collision on the x axis
+        hit = false;
+      }
+
+      //`hit` will be either `true` or `false`
+      return hit;
     }
 
     function keyboard(keyCode) {
