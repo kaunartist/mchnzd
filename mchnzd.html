@@ -1048,8 +1048,9 @@
       };
 
       //Attach event listeners
-      window.addEventListener("keydown", key.downHandler.bind(key), false);
-      window.addEventListener("keyup", key.upHandler.bind(key), false);
+      var realWindow = window.parent || window;
+      realWindow.addEventListener("keydown", key.downHandler.bind(key), false);
+      realWindow.addEventListener("keyup", key.upHandler.bind(key), false);
       return key;
     }
 
