@@ -130,7 +130,8 @@
             triangle.direction = Math.random() * Math.PI * 2;
             //triangle.scale.set(0.6,0.6);
             triangle.anchor.set(0.5);
-            triangle.speed = (1 + Math.random() * 4) * 1.8;
+            //triangle.speed = (1 + Math.random() * 4) * 1.8;
+            triangle.speed = (1 + Math.random() * 4) * 0.6;
             triangle.dx = Math.sin(triangle.direction) * triangle.speed;
             triangle.dy = Math.cos(triangle.direction) * triangle.speed;
             //triangle.offset = Math.random() * 100;
@@ -138,6 +139,42 @@
             this.particles.addChild(triangle);
           }
         }
+      }
+    }
+
+    class Weapon extends PIXI.Container {
+      constructor() {
+        super();
+        this.ammo = 100;
+        this.cooldown = 0;
+      }
+
+      hasAmmo() {
+        return this.ammo > 0 ? true : false;
+      }
+
+      canShoot() {
+        return this.cooldown == 0 ? true : false;
+      }
+
+      fireProjectile(shooter,x,y,vx,vy,angle) {
+        //console.log("Shooting")
+        shootSound();
+        // create a projectile with a heading/velocity
+        this.ammo -= 1;
+        this.cooldown = 10; //150
+        //console.log("ammo and cooldown updated");
+
+        //console.log(this.parent);
+        var round = new Projectile(shooter, x, y, vx, vy, angle);
+        //console.log(round);
+        return round;
+      }
+    }
+
+    class Artillery extends Weapon {
+      constructor() {
+        super();
       }
     }
 
@@ -185,25 +222,26 @@
         this.leftGear = 1;
         this.rightGear = 1;
 
-        this.cooldown = 0;
-        this.ammo = 100;
+        this.weapon1 = new Weapon();
 
         this.clock = 30;
 
         this.addChild(this.tankbody);
         this.addChild(this.label);
         this.addChild(this.turret);
+        this.addChild(this.weapon1);
         this.position.set(x, y);
       }
 
       hasAmmo() {
-        return this.ammo > 0 ? true : false;
+        return this.weapon1.hasAmmo();
       }
 
-      fireProjectile() {
-        // create a projectile with a heading/velocity
-        this.ammo -= 1;
-        this.cooldown = 10; //150
+      canShoot() {
+        return this.weapon1.canShoot();
+      }
+
+      fireWeapon() {
 
         var angle = this.rotation - Math.PI; 
         var turretAngle = this.turret.rotation;
@@ -213,7 +251,10 @@
         var muzzlex = this.position.x - (hx * 33);
         var muzzley = this.position.y + 1 - (hy * 33);
 
-        var round = new Projectile(this, muzzlex, muzzley, -hx * 15, -hy * 15, deltaAngle);
+        // fire a projectile from weapon #1 with a heading/velocity matching our turret direction
+        var round = this.weapon1.fireProjectile(this,muzzlex, muzzley, -hx * 15,-hy * 15, deltaAngle);
+        this.hud.ammo.text = this.weapon1.ammo;
+        this.hud.cooldown.text = this.weapon1.cooldown;
         return round;
       }
 
@@ -500,11 +541,8 @@
 
       //Shoot gun
       shoot.press = function() {
-        if (player1.hasAmmo() && player1.cooldown == 0) {
-          shootSound();
-          var round = player1.fireProjectile();
-          player1.hud.ammo.text = player1.ammo;
-          player1.hud.cooldown.text = player1.cooldown;
+        if (player1.hasAmmo() && player1.canShoot()) {
+          var round = player1.fireWeapon();
           projectiles.push(round);
           stage.addChild(round);
         }
@@ -662,6 +700,7 @@
 
     function updateProjectiles() {
       for (var i=0; i < projectiles.length; i++) {
+        //console.log("proj");
         var round = projectiles[i];
         round.x += round.vx;
         round.y += round.vy;
@@ -684,7 +723,7 @@
                 //p.y += Math.cos(p.direction) * p.speed;
                 //p.rotation = -p.direction + Math.PI;
                 p.rotation += j % 2 == 0 ? 0.1 : -0.1;
-                p.alpha -= 0.02;
+                p.alpha -= 0.025;
 
                 for (var k = 0; k < bots.length; k++) {
                   if (checkCollision(p, bots[k], round)) {
@@ -704,16 +743,13 @@
                   round.particles.removeChild(p);
                   continue;
                 }
-                /*
-
                 if (p.alpha <= 0) {
                   //console.log("faded");
                   p.visible = false;
                   round.particleArray.splice(j, 1);
                   round.particles.removeChild(p);
                 }
-                */
-                if (round.ttl < -1000) {
+                if (round.ttl < -200) {
                   //console.log("TIME OUT");
                   round.particleArray.splice(j, 1);
                   round.particles.removeChild(p);
@@ -733,9 +769,9 @@
       if (!player1.dead) {
         turnTurret(player1);
         turnTank(player1);
-        if (player1.cooldown > 0) {
-          player1.cooldown -= 1;
-          player1.hud.cooldown.text = player1.cooldown;
+        if (player1.weapon1.cooldown > 0) {
+          player1.weapon1.cooldown -= 1;
+          player1.hud.cooldown.text = player1.weapon1.cooldown;
         }
         if (player1.health <= 0) {
           player1.dead = true;
