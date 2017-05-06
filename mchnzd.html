@@ -16,6 +16,19 @@
     // GLOBALS
     var renderer, stage, player1, bots, heading, projectiles;
     var state = play;
+
+    var whitetriangle = new PIXI.Graphics();
+    whitetriangle.beginFill(0x000000, 0).lineStyle(1.4, 0xffffff);
+    whitetriangle.drawPolygon([-4,8, 4,8, 0,0]);
+    whitetriangle.endFill();
+    var wt_tex = whitetriangle.generateCanvasTexture(PIXI.scaleModes.DEFAULT);
+
+    var bluetriangle = new PIXI.Graphics();
+    bluetriangle.beginFill(0x000000, 0).lineStyle(1.4, 0x00ffff);
+    bluetriangle.drawPolygon([-4,8, 4,8, 0,0]);
+    bluetriangle.endFill();
+    var blue_tri = bluetriangle.generateCanvasTexture(PIXI.scaleModes.DEFAULT);
+
     var orangetriangle = new PIXI.Graphics();
     orangetriangle.beginFill(0x000000, 0).lineStyle(1.4, 0xff7f00);
     orangetriangle.drawPolygon([
@@ -107,6 +120,7 @@
         this.position.set(x, y);
         this.rotation = angle;
         this.ttl = 20;
+        this.fade = 0.025;
         this.dead = false;
         this.yield = 50;
         this.damage = 0.5;
@@ -116,6 +130,7 @@
       }
 
       detonate() {
+        console.log("Detonating default projectile");
         if (!this.dead) {
           this.dead = true;
           this.vx = 0;
@@ -142,11 +157,52 @@
       }
     }
 
+    class Flame extends Projectile {
+      constructor(player, x, y, vx, vy, angle) {
+        super(player, x, y, vx, vy, angle);
+        this.ttl = 0;
+        this.yield = 20;
+        this.damage = 0.2;
+        this.fade = 0.05;
+      }
+
+      detonate() {
+        if (!this.dead) {
+          this.dead = true;
+          this.visible = false;
+          var x = this.position.x;
+          var y = this.position.y;
+
+          for (var i = 0; i < this.yield; i++) {
+            var triangle = new PIXI.Sprite(blue_tri);
+            triangle.x = x + randomFloat(-1, 1);
+            triangle.y = y + randomFloat(-1, 1);
+
+            // rotation = -3.14 to 3.14 (-PI to PI)
+            //triangle.direction = this.rotation - Math.PI;// + randomFloat(-1, 1) * Math.PI/4;
+            //console.log("Rotation = " + this.rotation);
+            triangle.anchor.set(0.5);
+            triangle.speed = (1 + Math.random() * 4) * 0.6;
+            triangle.dx = this.vx + randomFloat(-0.8, 0.2);// * triangle.speed;
+            triangle.dy = this.vy + randomFloat(-0.8, 0.2);// * triangle.speed;
+            //triangle.dx = Math.sin(triangle.direction) * triangle.speed;
+            //triangle.dy = Math.cos(triangle.direction) * triangle.speed;
+            this.particleArray.push(triangle);
+            this.particles.addChild(triangle);
+          }
+          this.vx = 0;
+          this.vy = 0;
+        }
+      }
+    }
+
     class Weapon extends PIXI.Container {
       constructor() {
         super();
         this.ammo = 100;
         this.cooldown = 0;
+        this.fullauto = false;
+        this.firing = false;
       }
 
       hasAmmo() {
@@ -157,8 +213,24 @@
         return this.cooldown == 0 ? true : false;
       }
 
+      fullAuto() {
+        return this.fullauto;
+      }
+
+      startFiring() {
+        this.firing = true;
+      }
+
+      stopFiring() {
+        this.firing = false;
+      }
+
+      isFiring() {
+        return this.firing;
+      }
+
       fireProjectile(shooter,x,y,vx,vy,angle) {
-        //console.log("Shooting")
+        console.log("Shooting default weapon")
         shootSound();
         // create a projectile with a heading/velocity
         this.ammo -= 1;
@@ -175,6 +247,31 @@
     class Artillery extends Weapon {
       constructor() {
         super();
+      }
+
+      fireProjectile(shooter,x,y,vx,vy,angle) {
+        //shootSound();
+        this.ammo -= 1;
+        this.cooldown = 10;
+
+        var round = new Projectile(shooter, x, y, vx*15, vy*15, angle);
+        return round;
+      }
+    }
+
+    class Flamethrower extends Weapon {
+      constructor() {
+        super();
+        this.ammo = 1000;
+        this.fullauto = true;
+      }
+
+      fireProjectile(shooter,x,y,vx,vy,angle) {
+        //shootSound();
+        this.ammo -= 1;
+
+        var round = new Flame(shooter, x, y, vx*5, vy*5, angle);
+        return round;
       }
     }
 
@@ -222,7 +319,7 @@
         this.leftGear = 1;
         this.rightGear = 1;
 
-        this.weapon1 = new Weapon();
+        this.weapon1 = new Flamethrower();
 
         this.clock = 30;
 
@@ -252,7 +349,7 @@
         var muzzley = this.position.y + 1 - (hy * 33);
 
         // fire a projectile from weapon #1 with a heading/velocity matching our turret direction
-        var round = this.weapon1.fireProjectile(this,muzzlex, muzzley, -hx * 15,-hy * 15, deltaAngle);
+        var round = this.weapon1.fireProjectile(this,muzzlex, muzzley, -hx,-hy, deltaAngle);
         this.hud.ammo.text = this.weapon1.ammo;
         this.hud.cooldown.text = this.weapon1.cooldown;
         return round;
@@ -545,9 +642,13 @@
           var round = player1.fireWeapon();
           projectiles.push(round);
           stage.addChild(round);
+          if (player1.weapon1.fullAuto()) {
+            player1.weapon1.startFiring();
+          }
         }
       };
       shoot.release = function() {
+        player1.weapon1.stopFiring();
       };
 
       //Turret rotation
@@ -723,7 +824,7 @@
                 //p.y += Math.cos(p.direction) * p.speed;
                 //p.rotation = -p.direction + Math.PI;
                 p.rotation += j % 2 == 0 ? 0.1 : -0.1;
-                p.alpha -= 0.025;
+                p.alpha -= round.fade;
 
                 for (var k = 0; k < bots.length; k++) {
                   if (checkCollision(p, bots[k], round)) {
@@ -769,6 +870,15 @@
       if (!player1.dead) {
         turnTurret(player1);
         turnTank(player1);
+        if (player1.weapon1.isFiring()) {
+          if (player1.hasAmmo() && player1.canShoot()) {
+            var round = player1.fireWeapon();
+            projectiles.push(round);
+            stage.addChild(round);
+          } else {
+            // make an empty ammo clicking sound?
+          }
+        }
         if (player1.weapon1.cooldown > 0) {
           player1.weapon1.cooldown -= 1;
           player1.hud.cooldown.text = player1.weapon1.cooldown;
@@ -955,6 +1065,10 @@
 
     function randomInt(min, max) {
       return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function randomFloat(min, max) {
+      return Math.random() * (max - min + 1) + min;
     }
 
     function simpleHitTest(r1, r2) {
